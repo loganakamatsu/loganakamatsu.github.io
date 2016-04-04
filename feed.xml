@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Logan Akamatsu</title>
+    <description></description>
+    <link>https://loganakamatsu.github.io//</link>
+    <atom:link href="https://loganakamatsu.github.io//feed.xml" rel="self" type="application/rss+xml" />
+    <pubDate>Mon, 18 Apr 2016 16:02:48 -0400</pubDate>
+    <lastBuildDate>Mon, 18 Apr 2016 16:02:48 -0400</lastBuildDate>
+    <generator>Jekyll v3.0.2</generator>
+    
+      <item>
+        <title>Data Pipeline configuration oddities</title>
+        <description>&lt;p&gt;I&amp;#39;ve been working for a little while on a
+&lt;a href=&quot;https://rubygems.org/gems/waterworks&quot;&gt;gem&lt;/a&gt; to configure and deploy &lt;a href=&quot;https://aws.amazon.com/datapipeline/&quot;&gt;AWS Data
+Pipelines.&lt;/a&gt; At my day job, we use Data
+Pipeline to schedule various types of repeating jobs. If you&amp;#39;re interested, you
+can see more details on &lt;a href=&quot;https://mobiledefense.com/blog/2016/04/04/waterworks/&quot;&gt;the company
+blog.&lt;/a&gt; To summarize, we
+wanted a library to configure Data Pipelines as Ruby objects so we could easily
+compose, reuse, version control, etc. &lt;/p&gt;
+
+&lt;p&gt;In developing waterworks, we decided to build on top of the Ruby AWS SDK. We
+chose Ruby mostly because we didn&amp;#39;t think that any one AWS SDK had significant
+advantages for Data Pipeline and secondarily because most people in the
+company are comfortable with Ruby. One other advantage of the Ruby SDK instead
+of something like Java is that the hashes expected by the SDK are very similar
+to the JSON ones used by the CLI and web console.&lt;/p&gt;
+
+&lt;p&gt;However, there is a caveat to this since the format used is subtly different:&lt;/p&gt;
+
+&lt;p&gt;JSON &lt;a href=&quot;http://docs.aws.amazon.com/datapipeline/latest/DeveloperGuide/dp-copydata-redshift-define-pipeline-cli.html&quot;&gt;see reference&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-json&quot; data-lang=&quot;json&quot;&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+  &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;objects&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;id&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;my_id&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;my_name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;field_key_1&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;field_value_1&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;field_key_n&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;field_value_n&quot;&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+  &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Ruby &lt;a href=&quot;http://docs.aws.amazon.com/sdkforruby/api/Aws/DataPipeline/Client.html#put_pipeline_definition-instance_method&quot;&gt;see reference&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;ss&quot;&gt;pipeline_objects: &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# required&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;ss&quot;&gt;id: &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;my_id&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# required&lt;/span&gt;
+      &lt;span class=&quot;ss&quot;&gt;name: &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;my_name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# required&lt;/span&gt;
+      &lt;span class=&quot;ss&quot;&gt;fields: &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# required&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+          &lt;span class=&quot;ss&quot;&gt;key: &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;field_key_1&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# required&lt;/span&gt;
+          &lt;span class=&quot;ss&quot;&gt;string_value: &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;field_value_1&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+          &lt;span class=&quot;c1&quot;&gt;# or&lt;/span&gt;
+          &lt;span class=&quot;ss&quot;&gt;ref_value: &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;field_value_1&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;
+      &lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;The main difference is that the fields of each Pipeline Object are encapsulated
+differently. In the JSON object, the fields are on the same level as the &lt;code&gt;id&lt;/code&gt;
+and &lt;code&gt;name&lt;/code&gt;. In the Ruby Hash format, the fields are encapsulated in a &lt;code&gt;field&lt;/code&gt;
+array with objects that have a &lt;code&gt;key&lt;/code&gt; and an explicit &lt;code&gt;string_value&lt;/code&gt; or
+&lt;code&gt;ref_value&lt;/code&gt;. In the JSON format, the designation of string or reference is
+implicit. This is a slight annoyance, but since each field is bound to a type
+(see the fields tables in an &lt;a href=&quot;http://docs.aws.amazon.com/datapipeline/latest/DeveloperGuide/dp-object-emrcluster.html#emrcluster-syntax&quot;&gt;example
+object&lt;/a&gt;)
+we can easily build this into our logic. &lt;/p&gt;
+</description>
+        <pubDate>Sun, 17 Apr 2016 20:00:00 -0400</pubDate>
+        <link>https://loganakamatsu.github.io//2016/water-works/</link>
+        <guid isPermaLink="true">https://loganakamatsu.github.io//2016/water-works/</guid>
+        
+        <category>waterworks</category>
+        
+        <category>data pipeline</category>
+        
+        <category>ruby</category>
+        
+        
+        <category>technical</category>
+        
+      </item>
+    
+      <item>
+        <title>Extracting ADB backups</title>
+        <description>&lt;p&gt;Sometimes when developing, reversing, or otherwise working with Android apps, it can be useful to see what&amp;#39;s in your (or your target&amp;#39;s) data directory. Typically, you either have root or the app&amp;#39;s signing keys so it&amp;#39;s trivial to see what&amp;#39;s going on. However, there are couple situations where you might not be rooted or can&amp;#39;t directly read the app&amp;#39;s data directory. For example, you might be working on a friend&amp;#39;s device or debugging a library that is included in an app for which you don&amp;#39;t have the signing keys.&lt;/p&gt;
+
+&lt;p&gt;This post addresses one possible solution to this problem, which is to examine a backup of that app&amp;#39;s data taken via ADB. ADB backups are meant to make local backups of app data that are compressed and optionally encrypted. In our case, we don&amp;#39;t want or need to encrypt the backup since we&amp;#39;re planning to extract it for our own reading anyway.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;#39;s look at the adb backup options:&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-terminal&quot; data-lang=&quot;terminal&quot;&gt;adb backup [-f &amp;lt;file&amp;gt;] [-apk|-noapk] [-obb|-noobb] [-shared|-noshared] [-all] [-system|-nosystem] [&amp;lt;packages...&amp;gt;]
+       - write an archive of the device&#39;s data to &amp;lt;file&amp;gt;.
+       If no -f option is supplied then the data is written
+       to &quot;backup.ab&quot; in the current directory.
+       (-apk|-noapk enable/disable backup of the .apks themselves
+          in the archive; the default is noapk.)
+       (-obb|-noobb enable/disable backup of any installed apk expansion
+          (aka .obb) files associated with each application; the default
+          is noobb.)
+       (-shared|-noshared enable/disable backup of the device&#39;s
+          shared storage / SD card contents; the default is noshared.)
+       (-all means to back up all installed applications)
+       (-system|-nosystem toggles whether -all automatically includes
+          system applications; the default is to include system apps)
+       (&amp;lt;packages...&amp;gt; is the list of applications to be backed up.  If
+          the -all or -shared flags are passed, then the package
+          list is optional.  Applications explicitly given on the
+          command line will be included even if -nosystem would
+          ordinarily cause them to be omitted.)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Note that if the app developer has &lt;code&gt;allowBackup:false&lt;/code&gt; in their manifest, you won&amp;#39;t be able to use this method.&lt;/p&gt;
+
+&lt;p&gt;So we can create a backup for our app with something like:&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-&quot; data-lang=&quot;&quot;&gt;adb backup &amp;lt;package_name&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;This will open a prompt on the device to confirm a backup.&lt;/p&gt;
+
+&lt;p&gt;Once we have this backup file (&lt;code&gt;backup.ab&lt;/code&gt; by default) we can extract it to see what&amp;#39;s inside. The file format is a &lt;a href=&quot;https://nelenkov.blogspot.de/2012/06/unpacking-android-backups.html&quot;&gt;modified compressed tar&lt;/a&gt;. The modifications are an extra four lines at the beginning of the file that contain metadata about the backup; ANDROID BACKUP &amp;quot;magic number,&amp;quot; version, compression, and encryption algorithm respectively. Since the file isn&amp;#39;t encrypted, we can easily extract the file by dropping the first four &amp;quot;extra&amp;quot; lines and prepending the gzip header.&lt;/p&gt;
+
+&lt;p&gt;First four lines of &lt;code&gt;backup.ab&lt;/code&gt; look something like this:&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-&quot; data-lang=&quot;&quot;&gt;ANDROID BACKUP
+3
+1
+none
+...rest of file
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;To extract:&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-&quot; data-lang=&quot;&quot;&gt;# drop the first four lines:
+tail -n +5 backup.ab &amp;gt; trimmed.dat 
+
+# add the gz header:
+printf &quot;\x1f\x8b\x08\x00\x00\x00\x00\x00&quot; | cat - trimmed.dat &amp;gt; backup.gz 
+
+# eXtract, Verbose, compreZZed, File
+tar -xvzf backup.gz
+
+# or all together:
+(printf &quot;\x1f\x8b\x08\x00\x00\x00\x00\x00&quot; ; tail -n +5 backup.ab) | tar xvzf -
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;p&gt;Once the backup is extracted, we can easily browse what data was stored locally by our application.&lt;/p&gt;
+</description>
+        <pubDate>Tue, 12 Apr 2016 20:00:00 -0400</pubDate>
+        <link>https://loganakamatsu.github.io//2016/extracting-adb-backups/</link>
+        <guid isPermaLink="true">https://loganakamatsu.github.io//2016/extracting-adb-backups/</guid>
+        
+        <category>android</category>
+        
+        <category>adb</category>
+        
+        
+        <category>technical</category>
+        
+      </item>
+    
+      <item>
+        <title>It&#39;s a Jekyll!</title>
+        <description>&lt;p&gt;&amp;quot;Jekyll, Jekyll, Jekyll, it&amp;#39;s a Jekyll, it &lt;a href=&quot;https://www.youtube.com/results?search_query=family+guy+it%27s+a+jackal&quot;&gt;looks like a
+jekyll!&lt;/a&gt;&amp;quot;&lt;/p&gt;
+
+&lt;p&gt;After much &lt;del&gt;deliberation&lt;/del&gt; procrastination, I decided to use Jekyll to get my
+website/ blog going. I&amp;#39;m hoping to keep up with it semi-regularly, if with
+nothing else than reposts, cat gifs, and food pictures. But seriously, I&amp;#39;ll
+hopefully have some food related experiments smattered throughout from time to
+time.&lt;/p&gt;
+
+&lt;p&gt;This theme comes from &lt;a href=&quot;https://github.com/joshgerdes/jekyll-uno&quot;&gt;jekyll-uno&lt;/a&gt;
+with some minimal modifications. Thanks @joshgerdes.&lt;/p&gt;
+
+&lt;p&gt;The cover photo is from a recent trip to &lt;a href=&quot;http://www.snowbird.com/&quot;&gt;Snowbird&lt;/a&gt; in
+Utah.&lt;/p&gt;
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;sudo shutdown
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description>
+        <pubDate>Tue, 05 Apr 2016 20:00:00 -0400</pubDate>
+        <link>https://loganakamatsu.github.io//2016/its-a-jekyll/</link>
+        <guid isPermaLink="true">https://loganakamatsu.github.io//2016/its-a-jekyll/</guid>
+        
+        <category>jekyll</category>
+        
+        <category>technical</category>
+        
+        
+        <category>technical</category>
+        
+      </item>
+    
+  </channel>
+</rss>
